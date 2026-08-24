@@ -1,0 +1,62 @@
+{
+  "summary": "Backend regression suite (33 pytest cases) + frontend smoke: auth, dashboard, POS scan, all sidebar routes. Backend TESTS A/B/C/D/E all PASS. Two CRITICAL bugs found: (1) demo users (@demo.local) can't login (Pydantic EmailStr rejects reserved TLD -> 422), breaking every demo button on /login; (2) /ordini and /sistema/sincronizzazioni routes crash to a fully blank page because Orders.jsx and SyncLog use `useEffect(async () => ...)` which returns a Promise and throws 'destroy is not a function', unmounting the whole layout.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "/api/auth/login", "issue": "Login with any *@demo.local user returns 422 'The part after the @-sign is a special-use or reserved name that cannot be used with email' because LoginIn.email uses Pydantic EmailStr. Blocks all 4 demo users (manager/cassa.donna1/cassa.donna2/cassa.uomo). Fix: change LoginIn.email to `str` (email format is not required for a login lookup) OR relax email-validator by using `EmailStr` with `email_validator` in test mode / switch demo TLD to a valid one (e.g. @demo.test won't work either; @example.com works).", "priority": "CRITICAL"}
+    ],
+    "minor": [
+      {"endpoint": "/api/shopify/webhook/order", "issue": "Endpoint uses `Depends(get_current_user_dep)` — a real Shopify webhook cannot send a JWT/cookie. For a production webhook this must use HMAC verification instead of session auth. Currently acceptable as a simulate endpoint but flag for future."},
+      {"endpoint": "/api/products POST", "issue": "SKU uniqueness is checked inside the loop AFTER product is already inserted; on error the parent product remains orphaned (no transaction). Consider validating all SKUs upfront."},
+      {"endpoint": "CORS", "issue": "`allow_origins=['*']` combined with `allow_credentials=True` is invalid per CORS spec. Browsers currently work only because cookies aren't strictly required (Bearer fallback exists). Set explicit origin from FRONTEND_URL env."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Login demo buttons", "issue": "Clicking any demo user button (Cassa Donna 1/2, Cassa Uomo, Manager DEMO) auto-fills the form and submits, but backend returns 422 due to .local TLD validation. User sees no visible error toast, just stays on /login. Users can NOT use any demo account. Once backend LoginIn.email is loosened this works.", "selector": "[data-testid='demo-CASSIERE_DONNA_1']", "priority": "CRITICAL"},
+      {"component": "Orders page (/ordini)", "issue": "Route renders a completely BLANK page. Root cause: `useEffect(async () => { ... })` inside Orders.jsx returns a Promise; React tries to call it as cleanup -> 'destroy is not a function' -> component throws -> since there is no ErrorBoundary the whole Protected layout unmounts (no sidebar either). Fix pattern: `useEffect(() => { const run = async () => {...}; run(); }, [])`.", "selector": "/ordini", "priority": "CRITICAL"},
+      {"component": "SyncLog page (/sistema/sincronizzazioni)", "issue": "Same async useEffect bug; page renders empty (0 chars body).", "selector": "/sistema/sincronizzazioni", "priority": "CRITICAL"}
+    ],
+    "integration_issues": [
+      {"flow": "Demo login", "issue": "Demo button click -> POST /api/auth/login 422 -> silently kept on /login (no toast). Add error surface AND fix backend validation.", "affected_selectors": ["[data-testid='demo-CASSIERE_DONNA_1']", "[data-testid='demo-CASSIERE_DONNA_2']", "[data-testid='demo-CASSIERE_UOMO']", "[data-testid='demo-MANAGER']"]}
+    ],
+    "design_issues": [
+      {"screen": "Login page", "issues": ["No visible error message when login fails (422/401). Silent failure confuses non-technical users."]},
+      {"screen": "Global", "issues": ["Missing top-level ErrorBoundary — a bug in any single page unmounts the whole app shell (sidebar + header)."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Fix backend LoginIn.email validation (use `str` instead of EmailStr, or accept reserved TLDs). Without this, ALL demo accounts are unusable.",
+    "Fix Orders.jsx and SyncLog useEffect: don't pass an async function directly to useEffect.",
+    "Add a global ErrorBoundary around Protected routes so a broken page doesn't blank the whole shell.",
+    "Show a toast/inline error on Login when /api/auth/login returns non-200 (currently silent).",
+    "Tighten CORS: replace allow_origins=['*'] + allow_credentials=True with explicit FRONTEND_URL origin.",
+    "Consider transactional rollback / upfront SKU validation in POST /api/products."
+  ],
+  "critical_code_review_comments": [
+    "server.py is 830+ lines: split into routers per domain (auth, catalog, inventory, pos, shopify, csv, admin) as already hinted by empty /app/backend/routers dir.",
+    "auth_utils.get_current_user_dep also raises 401 on any decode exception generically; consider narrower catch to preserve stack traces.",
+    "seed_admin_and_demo_users updates admin password if changed, but never resets demo users' passwords if broken — acceptable for MVP.",
+    "Shopify webhook auth: use HMAC signature verification instead of user JWT (production-blocker for real integration).",
+    "shopify_webhook_order writes external_id both on sales and inventory_movements with suffix `:{loc.code}` — good for idempotency across locations."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "94% (31/33 pytest passed; 2 failures are the demo-login bug)", "frontend": "~85% (all pages load except /ordini and /sistema/sincronizzazioni; demo login buttons broken)"},
+  "test_credentials": "Admin bhmen52na@gmail.com / Admin123! WORKS. Demo users manager@demo.local / cassa.donna1@demo.local / cassa.donna2@demo.local / cassa.uomo@demo.local (Demo123!) all FAIL due to backend EmailStr validation.",
+  "seed_data_creation": "Backend tests created: 1 test product (TEST-M-<ts>), 1 CSV supplier import (TEST_SUPPLIER), 1 promotion (TEST Promo <ts>), several POS sales (V-000001..V-000007) and 1 Shopify order (SH-000007). These consumed some seed stock (e.g. IMP001-NERO-M sold from Donna1). Not harmful for further QA.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend regression at /app/backend/tests/backend_test.py runs in ~6s (pytest-xdist). Two known failures reflect real bugs (demo login + user creation flow that depends on demo login). After the main agent fixes LoginIn.email validation, re-run the same suite; then retest /ordini + /sistema/sincronizzazioni after the async useEffect fix (should render sale orders table and sync jobs table respectively). Backend TESTS A/B/C/D/E specification are already automated in TestPOSAndStock and TestTransfers / TestShopifyWebhook classes.",
+  "rca_of_the_issue": {
+    "demo_login_422": {
+      "reproduce": "curl -s -X POST $BACKEND/api/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"cassa.donna1@demo.local\",\"password\":\"Demo123!\"}' -> HTTP 422 with detail 'value is not a valid email address: The part after the @-sign is a special-use or reserved name'.",
+      "root_cause": "models.py LoginIn.email is pydantic EmailStr, which under email-validator>=2 rejects reserved TLDs like .local, .test, .example, .invalid.",
+      "mitigation": "Change `email: EmailStr` -> `email: str` in LoginIn (login lookup does not need RFC-strict validation)."
+    },
+    "blank_pages_ordini_sync": {
+      "reproduce": "Login as admin, navigate to /ordini or /sistema/sincronizzazioni -> whole page (including sidebar) is white.",
+      "root_cause": "useEffect callback is declared `async () => { ... }` returning a Promise; React then calls the returned value as cleanup, throwing 'destroy is not a function'. Without an ErrorBoundary the whole ProtectedLayout unmounts.",
+      "mitigation": "In Orders.jsx and SyncLog (OtherPages.jsx), replace `useEffect(async () => {...}, [])` with `useEffect(() => { (async () => { ... })(); }, [])` and add a global ErrorBoundary in App.js."
+    }
+  }
+}

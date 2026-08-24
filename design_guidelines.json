@@ -1,0 +1,140 @@
+{
+  "theme": "light",
+  "archetype": "SWISS & HIGH-CONTRAST + LUXURY (Fashion Retail Minimal)",
+  "typography": {
+    "fonts": {
+      "headings": "Manrope, sans-serif",
+      "body": "Manrope, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    },
+    "hierarchy": {
+      "h1": "text-4xl sm:text-5xl font-light tracking-tight",
+      "h2": "text-2xl sm:text-3xl font-normal tracking-tight",
+      "h3": "text-xl sm:text-2xl font-medium",
+      "h4": "text-lg sm:text-xl font-medium",
+      "body": "text-sm sm:text-base leading-relaxed",
+      "labels_overlines": "text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground"
+    },
+    "rules": [
+      "Avoid default Inter for main headings.",
+      "Use extreme legibility for POS mode (Manrope is highly legible).",
+      "Tight letter spacing on large text, generous on body.",
+      "Use bold/heavy weights sparingly; favor medium or normal for a premium fashion feel."
+    ]
+  },
+  "colors": {
+    "palette": {
+      "background": "#F9F9FA",
+      "foreground": "#111111",
+      "card": "#FFFFFF",
+      "card_foreground": "#111111",
+      "popover": "#FFFFFF",
+      "popover_foreground": "#111111",
+      "primary": "#000000",
+      "primary_foreground": "#FFFFFF",
+      "secondary": "#F4F4F5",
+      "secondary_foreground": "#111111",
+      "muted": "#F4F4F5",
+      "muted_foreground": "#71717A",
+      "accent": "#F4F4F5",
+      "accent_foreground": "#111111",
+      "destructive": "#EF4444",
+      "destructive_foreground": "#FFFFFF",
+      "border": "#E4E4E7",
+      "input": "#E4E4E7",
+      "ring": "#000000",
+      "sidebar": "#FFFFFF"
+    },
+    "rules": [
+      "No full-screen gradients. Keep it monochrome and structural.",
+      "Never use pure black or pure gray; tint with a subtle warmth or cool tone if needed, but for fashion, high-contrast monochrome (Black/White) is preferred.",
+      "Primary CTA buttons must be solid black.",
+      "Do NOT use teal or #7351B7.",
+      "Ensure text over images has a subtle gradient overlay or text-shadow for APCA contrast compliance."
+    ]
+  },
+  "visual_enhancers": {
+    "surfaces": "Flat Solid surfaces with crisp 1px borders (border-black/10). Avoid heavy soft UI / Neumorphism.",
+    "borders": "1px solid #E4E4E7. Use border-collapse for tables and data grids.",
+    "shadows": "Minimal. Use shadow-sm for floating elements (dropdowns, modals) and no shadow for base cards (rely on borders).",
+    "radii": "Subtle. rounded-md (6px) or rounded-sm (4px). Avoid overly pill-shaped containers except for specific badges or small buttons."
+  },
+  "component_name": {
+    "ui_library": "shadcn/ui",
+    "recommended": [
+      "Table (for Inventory, Orders, Products)",
+      "Card (flat, border-only, no shadow)",
+      "Button (sharp corners or slight radius, pure black primary)",
+      "Input / Select / Form (for POS barcode entry, product creation)",
+      "Dialog (for Quick View, Shopify Sync details)",
+      "Tabs (for switching between Area Donna, Area Uomo, Shopify)",
+      "Sonner (for Toast notifications like 'Sync completed', 'Item added to cart')",
+      "Badge (for variants, colors, sizes, stock status)"
+    ]
+  },
+  "grids": {
+    "dashboard_mode": "High Density Grid (cols-1 md:cols-3 lg:cols-4). Tight gaps (gap-4 or gap-6). Use standard tall widgets for 'ultimi movimenti'.",
+    "pos_mode": "Bento-style or split pane. Left/Top: Product Grid/Scanner (cols-3 or cols-4). Right/Bottom: Current Cart/Order summary (col-span-1 fixed).",
+    "spacing": "Generous spacing philosophy (p-6, p-8) for dashboard layout, but dense enough for POS to minimize scrolling on tablets."
+  },
+  "layouts": {
+    "navigation": "Sidebar on the left. Must contain: Dashboard, Vendite (POS, Storico), Prodotti, Magazzino, Ordini, Clienti, Importa, Promozioni, Integrazioni, Sistema.",
+    "header": "Top bar for User Profile, Location Switcher (LOCATION_DONNA_1, LOCATION_DONNA_2, LOCATION_UOMO), and global search/barcode scanner input.",
+    "responsive": "Tablet-optimized. POS must have minimum 44x44px touch targets. Sidebar can collapse into icons on tablet portrait."
+  },
+  "motion": {
+    "transitions": "Subtle and fast. Use CSS transitions for hover states (opacity, border color, slight transform).",
+    "lists": "Staggered fade-in for product grids or inventory lists.",
+    "rules": [
+      "Respect prefers-reduced-motion.",
+      "Do not use generic 'transition-all'.",
+      "Provide immediate visual feedback for POS actions (add to cart, scan)."
+    ]
+  },
+  "accessibility": {
+    "contrast": "Maintain WCAG AA minimums. Dark text on light backgrounds.",
+    "focus": "Clear focus rings (focus:ring-2 focus:ring-black focus:ring-offset-2) for barcode scanner inputs and POS buttons.",
+    "testing": "All interactive elements MUST include a `data-testid` attribute (e.g., `data-testid=\"pos-scan-input\"`, `data-testid=\"add-to-cart-button\"`).",
+    "aria": "Use aria-labels for icon-only buttons in POS."
+  },
+  "media": {
+    "image_urls": {
+      "products": [
+        "https://images.unsplash.com/photo-1601762603339-fd61e28b698a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTJ8MHwxfHNlYXJjaHwyfHxmYXNoaW9uJTIwY2xvdGhpbmclMjBtb2RlbCUyMG1pbmltYWx8ZW58MHx8fHwxNzg3NTkzMDg2fDA&ixlib=rb-4.1.0&q=85",
+        "https://images.unsplash.com/photo-1613915617430-8ab0fd7c6baf?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTJ8MHwxfHNlYXJjaHwxfHxmYXNoaW9uJTIwY2xvdGhpbmclMjBtb2RlbCUyMG1pbmltYWx8ZW58MHx8fHwxNzg3NTkzMDg2fDA&ixlib=rb-4.1.0&q=85",
+        "https://images.pexels.com/photos/9594684/pexels-photo-9594684.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
+      ],
+      "locations": [
+        "https://images.unsplash.com/photo-1441986300917-64674bd600d8?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzh8MHwxfHNlYXJjaHwxfHxjbG90aGluZyUyMHJldGFpbCUyMHN0b3JlJTIwbWluaW1hbHxlbnwwfHx8fDE3ODc1OTMwODV8MA&ixlib=rb-4.1.0&q=85",
+        "https://images.unsplash.com/photo-1555529771-835f59fc5efe?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzh8MHwxfHNlYXJjaHwzfHxjbG90aGluZyUyMHJldGFpbCUyMHN0b3JlJTIwbWluaW1hbHxlbnwwfHx8fDE3ODc1OTMwODV8MA&ixlib=rb-4.1.0&q=85"
+      ],
+      "avatars": [
+        "https://images.unsplash.com/photo-1516575150278-77136aed6920?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTJ8MHwxfHNlYXJjaHw0fHxmYXNoaW9uJTIwY2xvdGhpbmclMjBtb2RlbCUyMG1pbmltYWx8ZW58MHx8fHwxNzg3NTkzMDg2fDA&ixlib=rb-4.1.0&q=85"
+      ]
+    },
+    "rules": "Never use placeholder images. If real images are needed, use the ones provided above."
+  },
+  "3d_libraries": {
+    "status": "not_recommended",
+    "reason": "This is an administrative and POS software. 3D elements will distract from operational efficiency. Focus on 2D data clarity and speed."
+  },
+  "instructions_to_main_agent": [
+    "You have .js and .jsx files, NOT .tsx files. Write all React code in standard modern JavaScript (.jsx).",
+    "DO NOT use complete `transparent` background in header, overlays, or any surface that has content under it.",
+    "Implement an Italian language menu (Dashboard, Vendite, Prodotti, Magazzino, Ordini, Clienti, Importa, Promozioni, Integrazioni, Sistema).",
+    "Set currency formats to EUR and timezone logic to Europe/Rome.",
+    "Create a clean, monochrome (black/white/gray) UI that feels like a high-end fashion brand's internal tool (e.g., SSENSE, Zara). It MUST NOT look like standard developer SaaS.",
+    "Optimize tables and inputs for tablet usage (store POS). Use larger padding on interactive elements."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Do not converge toward generic 'AI slop' aesthetics. Use sharp 1px borders, pure flat backgrounds, and high contrast typography to create an editorial, premium software feel.",
+    "Avoid overly rounded corners; use rounded-md or sharp corners.",
+    "Create depth through layered design elements with z-index hierarchy, but keep styling flat and minimal (no deep shadows).",
+    "Never apply `transition: all`. Always specify properties (e.g., `transition: background-color 0.2s ease`).",
+    "Do not center align the app container. Respect left-alignment for data and reading flow.",
+    "Use modern button styles (pure black, sharp edges or slight radius, clear hover states).",
+    "Use Lucide-react for standard icons, but keep them minimal (1px stroke if possible).",
+    "All interactive elements MUST include `data-testid` attributes.",
+    "Use `sonner` for toast notifications."
+  ]
+}

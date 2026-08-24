@@ -1,0 +1,48 @@
+{
+  "summary": "Iteration 2 re-test after fixes. All 3 critical bugs from iter 1 are RESOLVED: (1) demo login now works for all 4 @demo.local users (backend LoginIn.email switched to str); (2) /ordini renders sidebar + orders table + 'Simula ordine Shopify' form; (3) /sistema/sincronizzazioni renders sidebar + sync jobs table. ErrorBoundary + Toaster are wired in App.js. Full pytest suite: 31/33 pass; 2 failures are STOCK DATA depletion from cumulative test runs (not real bugs). One NEW backend bug found & fixed by tester: GET /api/audit-logs returned 500 due to ObjectId in nested details field (previous promotion audit stored the raw insert_one-mutated doc). Fixed by cleaning details on write + defensive strip on read. Logout + demo relogin verified working.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/audit-logs", "issue": "Was returning 500: 'ObjectId is not iterable' because create_promotion stored the raw insert_one-mutated `doc` (with _id) inside audit_logs.details. Tester fixed by (a) stripping _id before log_audit and (b) defensively popping details._id in list_audit. Please review other log_audit calls that pass a full mongo doc as details."},
+      {"endpoint": "/api/shopify/webhook/order", "issue": "Still uses JWT auth via Depends(get_current_user_dep); a real Shopify webhook cannot send a JWT. Needs HMAC signature verification for production."},
+      {"endpoint": "CORS", "issue": "allow_origins=['*'] combined with allow_credentials=True is invalid per CORS spec. Should use explicit FRONTEND_URL origin."},
+      {"endpoint": "/api/products POST", "issue": "SKU uniqueness checked mid-loop after product doc already inserted; on partial failure product is orphaned. Validate SKUs upfront."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Login page", "issues": ["Demo user buttons only pre-fill the form; user must still click 'Entra'. This is by design but could be surfaced with a hint (or auto-submit after selection)."]},
+      {"screen": "Login page", "issues": ["Backend 401 responses still surface only as a browser console error — no on-screen error toast (Toaster is mounted globally now but the Login page catch block doesn't emit toast on wrong password)."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "OPTIONAL: audit all log_audit(..., doc) call sites — pass a clean projection instead of the raw insert_one-mutated document to avoid ObjectId in audit details.",
+    "OPTIONAL: on Login.jsx submit, emit toast.error(e.response?.data?.detail || 'Credenziali non valide') so wrong password fails visibly.",
+    "OPTIONAL: HMAC signature auth for /api/shopify/webhook/order (currently JWT-only), tighten CORS to explicit origin.",
+    "The 2 remaining pytest failures (test_A_sale_donna1 and test_E_webhook_idempotent) are seed-stock exhaustion after many iterations; consider running a `POST /api/admin/reseed` (if any) or refactoring these tests to first create a fresh product with initial stock."
+  ],
+  "critical_code_review_comments": [
+    "log_audit is called in several places with a mongo-loaded doc directly (e.g. line 806 promotions previously); any such call re-introduces ObjectId in audit details. Prefer projections like {'name': doc['name'], ...} or apply clean() before passing.",
+    "server.py still 830+ lines; split into routers per domain (auth/catalog/inventory/pos/shopify/csv/admin).",
+    "Login.jsx does not surface backend error message on failed login — combined with reserved-TLD emails, users can be silently stuck."
+  ],
+  "updated_files": [
+    "/app/backend/server.py (fixed audit-logs ObjectId 500 in create_promotion + list_audit)"
+  ],
+  "success_rate": {"backend": "94% (31/33 pytest; 2 remaining failures are seed-stock depletion, not code bugs)", "frontend": "100% (all 3 previously-broken pages now render; demo login E2E works)"},
+  "test_credentials": "Admin bhmen52na@gmail.com / Admin123! (OK). Demo users manager@demo.local, cassa.donna1@demo.local, cassa.donna2@demo.local, cassa.uomo@demo.local — all /Demo123! now return 200.",
+  "seed_data_creation": "This iteration added ~2 more POS sales, 1 CSV import (TEST_SUPPLIER), 1 promotion, 1 Shopify simulated order (SH-000013). Seed stock for IMP001-NERO-M @ loc-donna-1 and LJ050-DEN-28 is now exhausted — regression tests need a reseed hook.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All 3 critical iter-1 bugs are fixed. Backend suite at /app/backend/tests/backend_test.py runs in ~5s (pytest-xdist). Remaining 2 failures are cumulative stock depletion. If reseed endpoint is added, restore full green suite. New minor bug fixed by tester: audit-logs ObjectId 500 in server.py (promotion audit). ErrorBoundary + Toaster verified wired.",
+  "rca_of_the_issue": {
+    "audit_logs_500_new": {
+      "reproduce": "curl -H 'Authorization: Bearer <admin>' /api/audit-logs -> 500 after at least one POST /api/promotions was made (which stored the raw mongo doc — with _id — inside audit_logs.details).",
+      "root_cause": "server.py line 806 did `await log_audit('PROMOTION', 'promotion', doc['id'], user, doc)` where `doc` had been mutated by insert_one and carried a bson ObjectId under `_id`. Fastapi's jsonable_encoder blew up on serialization.",
+      "mitigation": "Applied by tester: (1) pass {k:v for k,v in doc.items() if k!='_id'} to log_audit; (2) list_audit defensively pops details._id."
+    }
+  }
+}
