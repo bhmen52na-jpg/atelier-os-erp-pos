@@ -107,10 +107,15 @@ export function Promotions() {
 
 export function UsersPage() {
     const [items, setItems] = useState([]);
+    const [denied, setDenied] = useState(false);
     const [f, setF] = useState({ name: "", email: "", password: "", role: "CASSIERE_DONNA_1", location_id: "" });
     const [locations, setLocations] = useState([]);
-    const load = () => api.get("/users").then((r) => setItems(r.data));
-    useEffect(() => { load(); api.get("/meta/locations").then((r) => setLocations(r.data)); }, []);
+    const load = () => api.get("/users").then((r) => setItems(r.data)).catch((e) => {
+        if (e?.response?.status === 403) { setDenied(true); toast.error("Accesso negato: solo Admin e Manager possono visualizzare gli utenti."); }
+        else toast.error(apiError(e));
+    });
+    useEffect(() => { load(); api.get("/meta/locations").then((r) => setLocations(r.data)).catch(() => {}); }, []);
+    if (denied) return <div className="max-w-md mx-auto text-center py-24" data-testid="users-denied"><div className="text-[10px] uppercase tracking-[0.2em] text-neutral-500">Accesso negato</div><h1 className="text-2xl font-light mt-1">Solo Admin</h1><p className="text-sm text-neutral-500 mt-2">Questa sezione è riservata all'amministratore del sistema.</p></div>;
     const submit = async (e) => {
         e.preventDefault();
         try { await api.post("/users", f); toast.success("Utente creato"); setF({ name: "", email: "", password: "", role: "CASSIERE_DONNA_1", location_id: "" }); load(); }
@@ -144,7 +149,14 @@ export function UsersPage() {
 
 export function AuditLog() {
     const [rows, setRows] = useState([]);
-    useEffect(() => { api.get("/audit-logs").then((r) => setRows(r.data)); }, []);
+    const [denied, setDenied] = useState(false);
+    useEffect(() => {
+        api.get("/audit-logs").then((r) => setRows(r.data)).catch((e) => {
+            if (e?.response?.status === 403) setDenied(true);
+            else toast.error(apiError(e));
+        });
+    }, []);
+    if (denied) return <div className="max-w-md mx-auto text-center py-24"><div className="text-[10px] uppercase tracking-[0.2em] text-neutral-500">Accesso negato</div><h1 className="text-2xl font-light mt-1">Solo Admin e Manager</h1><p className="text-sm text-neutral-500 mt-2">Il registro attività è riservato ai ruoli con visione totale.</p></div>;
     return (
         <div className="space-y-4" data-testid="audit-page">
             <div><div className="text-[10px] uppercase tracking-[0.2em] text-neutral-500">Sistema</div><h1 className="text-3xl font-light tracking-tight mt-1">Registro attività</h1></div>

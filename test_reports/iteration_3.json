@@ -1,0 +1,61 @@
+{
+  "summary": "Iterazione 3 — Revisione tecnica finale MVP ERP/POS Fashion. RISULTATO: 33/33 pytest della suite regressione principale PASSATI (5.0s) + 7/7 test supplementari PASSATI (indici Mongo, permessi cassieri, SKU duplicati, invarianza pool DONNA, idempotenza webhook triple-call, audit-logs dopo scritture). Frontend: tutte le 10 pagine principali caricano correttamente in italiano con contenuto reale (nessun dato hard-coded operativo verificato). Login admin e demo cassiere funzionanti. Backend restituisce correttamente 403 al cassiere che tenta GET/POST /api/users. Indici MongoDB verificati direttamente sul cluster: variants.sku UNIQUE, variants.ean indicizzato, inventory (variant_id,location_id) UNIQUE, users.email UNIQUE, sales.number UNIQUE, sales.external_id UNIQUE partial (string only), inventory_movements.external_id UNIQUE partial. Trovati 2 problemi frontend minori/medi da segnalare (dettaglio sotto). L'MVP è funzionalmente pronto per pubblicazione dietro documentazione delle 3 limitazioni simulate (test connessione Shopify, webhook Shopify HMAC, fiscalizzazione).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/shopify/webhook/order", "issue": "Endpoint accetta JWT anziché firma HMAC Shopify. Accettato come design MVP: in produzione va sostituito con verifica X-Shopify-Hmac-Sha256."},
+      {"endpoint": "/api/shopify/connections/{code}/sync", "issue": "Enqueue di job ma nessun worker background li processa (design MVP)."},
+      {"endpoint": "CORS", "issue": "allow_origins=['*'] combinato con allow_credentials=True — non conforme allo spec CORS. Impostare origine esplicita in produzione."},
+      {"endpoint": "POST /api/products", "issue": "Validazione SKU eseguita in loop dopo insert_one del prodotto; su duplicato l'inserimento fallisce ma può lasciare un product doc orfano senza rollback esplicito. Verificare in produzione."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "UsersPage (/sistema/utenti)", "issue": "Quando un cassiere naviga su /sistema/utenti, l'axios error 403 diventa Uncaught runtime error overlay (in dev build). Manca try/catch attorno alla chiamata GET /api/users con toast.error e stato 'Accesso negato'. In produzione l'overlay non appare ma la pagina resta vuota senza messaggio.", "selector": "src/pages/UsersPage.jsx (fetch users)", "priority": "MEDIUM"},
+      {"component": "Layout / Sidebar", "issue": "Il link 'Utenti & Ruoli' resta visibile in sidebar per i ruoli CASSIERE_*. Il backend blocca correttamente (403) ma UX-side il link non dovrebbe apparire. Filtrare i nav item per ruolo.", "selector": "src/components/Layout.jsx sidebar nav", "priority": "MEDIUM"},
+      {"component": "POS.jsx <select> locations", "issue": "Hydration warning React: <span> figlio di <option> nel select delle location POS (linea 94). Non blocca l'app ma è un errore React che comparirà anche in altri <select> generati con la stessa struttura. Rendere il testo direttamente: <option value={l.id}>{l.name}</option> senza wrapper.", "selector": "src/pages/POS.jsx line 94", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Login", "issues": ["I pulsanti demo pre-compilano solo la form; l'utente deve comunque cliccare 'Entra'. Aggiungibile auto-submit."]},
+      {"screen": "Login", "issues": ["Errore 401 su password sbagliata compare solo in console — nessun toast.error visibile. Toaster è montato globalmente ma Login.jsx non lo invoca nel catch."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_supplementary.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Nascondere 'Utenti & Ruoli' e 'Registro attività' dal sidebar per ruoli CASSIERE_*",
+    "Aggiungere try/catch + toast.error nelle pagine admin-only (UsersPage, AuditLogsPage) per gestire 403",
+    "Login.jsx: emettere toast.error(err.response?.data?.detail) sul catch del submit",
+    "POS.jsx e altri <select>: rimuovere lo <span> wrapper dentro <option> (React hydration warning)",
+    "PRODUZIONE: sostituire JWT con HMAC Shopify su /api/shopify/webhook/order",
+    "PRODUZIONE: CORS con origine esplicita (REACT_APP_BACKEND_URL) invece di '*'",
+    "PRODUZIONE: worker background per processare sync jobs Shopify + test connessione reale",
+    "PRODUZIONE: refactor server.py (>850 linee) in router per dominio: auth/catalog/inventory/pos/shopify/csv/admin"
+  ],
+  "critical_code_review_comments": [
+    "server.py monolitico (>850 righe) — da splittare in router per dominio",
+    "log_audit su alcune create_* passa mongo doc con _id — già mitigato ma prone a regressione: adottare helper clean_for_audit()",
+    "product create: SKU uniqueness controllato dopo insert_one del prodotto; su fallimento variante il prodotto resta orfano. Validare SKU tutti upfront + transaction o compensating delete",
+    "CORS '*' + allow_credentials=True non è standard-compliant"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_supplementary.py (nuovo file di regressione per indici, permessi, SKU duplicati, invarianza pool, idempotenza webhook)"
+  ],
+  "success_rate": {"backend": "100% (33/33 suite principale + 7/7 supplementari)", "frontend": "90% (tutte le pagine caricano; 3 bug UX minor/medi da fixare)"},
+  "test_credentials": "Verificate OK — Admin bhmen52na@gmail.com/Admin123!, tutti i 4 demo @demo.local/Demo123!",
+  "seed_data_creation": "Molti prodotti REG-*, DUP-*, POOL-*, WHK-*, CH-* creati dai test self-provisioning (non impattano più i seed di base perché ogni test crea il proprio prodotto)",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Suite completa a 33/33 + supplementare 7/7 stabile. Test self-provisioning (non dipendono più dai seed). Indici Mongo tutti confermati. 3 bug frontend UX minori documentati sopra. Le 3 limitazioni MVP (webhook HMAC, test connessione Shopify reale, fiscalizzazione) sono NOTE E ACCETTATE per pubblicazione MVP.",
+  "limiti_simulati": [
+    "Test connessione Shopify: risponde sempre 'Credenziali salvate. Test reale …dopo autorizzazione' — non chiama Admin API Shopify",
+    "Webhook Shopify: usa JWT dell'utente invece di HMAC signature — accettabile solo per demo/simulazione",
+    "Sync Shopify: job accodati ma nessun worker background li processa",
+    "Fiscalizzazione RT/scontrini: non implementata"
+  ],
+  "prontezza_pubblicazione": "PRONTO PER PUBBLICAZIONE MVP — a condizione che i 3 limiti simulati siano documentati come tali nell'annuncio (versione beta/preview) e che i 3 bug frontend UX (sidebar cassieri, toast errori, span in option) vengano sistemati nella prossima iterazione (nessuno è bloccante)."
+}

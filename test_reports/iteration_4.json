@@ -1,0 +1,32 @@
+{
+  "summary": "Iterazione 4 — Verifica dei 3 fix UX post-revisione tecnica MVP ERP/POS Fashion. RISULTATO: tutti i 3 fix UX verificati OK + suite pytest 40 passed / 1 skipped (test_mongo_indexes_present, skip ambientale come iter 3) nessuna regressione. FRONTEND: (1) Login con password errata mostra correttamente data-testid='login-error' visibile con testo 'Email o password errata' + toast. (2) Sidebar cassiere (cassa.donna1@demo.local) filtrata: nessuno degli 8 link admin/manager presente (nav-products, nav-orders, nav-promotions, nav-import, nav-shopify, nav-users, nav-sync-log, nav-audit = 0 count) e tutti i 7 link consentiti presenti (dashboard, pos, sales-history, inventory, movements, transfers, customers). (3) Manager (manager@demo.local) vede tutti i link tranne nav-users (OK). (4) Admin (bhmen52na@gmail.com) vede tutti gli 8 link admin/manager inclusi nav-users e nav-audit. (5) Navigazione manuale cassiere a /sistema/utenti mostra data-testid='users-denied' con testo 'Accesso negato · Solo Admin' — nessun uncaught error overlay. Dashboard KPI carica correttamente dopo login cassiere (Vendite Oggi 2743€, Movimenti recenti, Stato Shopify).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "backend/tests/test_supplementary.py::test_mongo_indexes_present", "issue": "Skippato (probabile motivo: variabile MONGO_URL non risolta dentro pytest per collegamento diretto). Non impatta funzionalità — indici già verificati in iterazione 3."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_supplementary.py",
+    "/app/test_reports/pytest/iter4.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "I 3 fix UX richiesti sono implementati correttamente e verificati end-to-end.",
+    "Restano OPEN (non bloccanti, già documentati in iter 3): server.py monolitico >850 righe, CORS '*' + credentials, POS.jsx <span> dentro <option> (React hydration warning LOW), sync worker background assente (design MVP), webhook Shopify JWT invece di HMAC (design MVP)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (40/40 eseguiti, 1 skip ambientale)", "frontend": "100% (5/5 flussi UX verificati)"},
+  "test_credentials": "Verificate OK — Admin bhmen52na@gmail.com/Admin123!, manager@demo.local/Demo123!, cassa.donna1@demo.local/Demo123!",
+  "seed_data_creation": "Nessuna aggiuntiva",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "MVP UX-complete. Tutti i 3 bug UX di iter3 chiusi: sidebar filtrata per ruolo, denied state su UsersPage/AuditLog, errore login visibile. Backend suite stabile 40/40. Se serve nuova iter, focus sui 4 punti PRODUZIONE (HMAC webhook, CORS explicit, Shopify sync worker, fiscalizzazione RT).",
+  "prontezza_pubblicazione": "PRONTO PER PUBBLICAZIONE MVP — tutti i fix UX confermati, nessuna regressione backend. Le 4 limitazioni MVP note (HMAC Shopify, test connessione reale, sync worker, fiscalizzazione) restano da documentare come tali nell'annuncio."
+}

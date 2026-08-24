@@ -117,12 +117,31 @@ def _get_variant(sku, headers):
 
 
 # ---------- POS SALE + STOCK DECREMENT (TEST A/B/C) ----------
+def _create_fresh_product(headers, model_code, sku, gender, initial_stock, price=99.0):
+    """Create a fresh product with known stock so tests are self-sufficient."""
+    payload = {
+        "model_code": model_code, "name": f"Regression {model_code}", "gender": gender,
+        "channels": ["DONNA_1", "DONNA_2", "SHOPIFY_DONNA"] if gender == "DONNA" else ["UOMO", "SHOPIFY_UOMO"],
+        "variants": [{
+            "color": "RegColor", "size": "M", "sku": sku, "ean": None,
+            "cost": 10.0, "price": price, "initial_stock": initial_stock,
+        }],
+    }
+    r = requests.post(f"{API}/products", json=payload, headers=headers)
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
 class TestPOSAndStock:
     def test_A_sale_donna1_decrements_only_donna1(self, admin_headers):
-        v = _get_variant("IMP001-NERO-M", admin_headers)
+        # Provision own stock: Donna1=2, Donna2=1
+        sku = f"REG-A-{int(time.time()*1000)}"
+        prod = _create_fresh_product(admin_headers, f"REG-A-{int(time.time()*1000)}", sku, "DONNA",
+                                     {"loc-donna-1": 2, "loc-donna-2": 1})
+        v = _get_variant(sku, admin_headers)
         before_d1 = v["stock_by_location"].get("loc-donna-1", 0)
         before_d2 = v["stock_by_location"].get("loc-donna-2", 0)
-        assert before_d1 >= 1, "seed expects Donna1 stock"
+        assert before_d1 == 2 and before_d2 == 1
 
         payload = {
             "location_id": "loc-donna-1",
@@ -134,29 +153,38 @@ class TestPOSAndStock:
         sale = r.json()
         assert sale["channel"] == "POS" and sale["total"] > 0
 
-        v2 = _get_variant("IMP001-NERO-M", admin_headers)
+        v2 = _get_variant(sku, admin_headers)
         assert v2["stock_by_location"].get("loc-donna-1", 0) == before_d1 - 1
         assert v2["stock_by_location"].get("loc-donna-2", 0) == before_d2
+        # Pool total decremented by exactly 1
+        assert sum(v2["stock_by_location"].values()) == before_d1 + before_d2 - 1
 
     def test_B_sale_donna2_decrements_only_donna2(self, admin_headers):
-        v = _get_variant("IMP088-BIA-M", admin_headers)
+        sku = f"REG-B-{int(time.time()*1000)}"
+        _create_fresh_product(admin_headers, f"REG-B-{int(time.time()*1000)}", sku, "DONNA",
+                              {"loc-donna-1": 1, "loc-donna-2": 2})
+        v = _get_variant(sku, admin_headers)
         before_d1 = v["stock_by_location"].get("loc-donna-1", 0)
         before_d2 = v["stock_by_location"].get("loc-donna-2", 0)
-        if before_d2 < 1:
-            pytest.skip("no Donna2 stock in seed")
         payload = {"location_id": "loc-donna-2", "items": [{"variant_id": v["id"], "quantity": 1, "unit_price": v["price"]}], "payment_method": "CONTANTI"}
         r = requests.post(f"{API}/pos/sales", json=payload, headers=admin_headers)
         assert r.status_code == 200, r.text
-        v2 = _get_variant("IMP088-BIA-M", admin_headers)
+        v2 = _get_variant(sku, admin_headers)
         assert v2["stock_by_location"].get("loc-donna-2", 0) == before_d2 - 1
         assert v2["stock_by_location"].get("loc-donna-1", 0) == before_d1
 
     def test_C_sale_uomo_does_not_affect_donna(self, admin_headers):
-        vu = _get_variant("DSL901-BLU-30", admin_headers)
+        # UOMO product with stock
+        sku_u = f"REG-CU-{int(time.time()*1000)}"
+        _create_fresh_product(admin_headers, f"REG-CU-{int(time.time()*1000)}", sku_u, "UOMO",
+                              {"loc-uomo": 2})
+        # DONNA product for snapshot
+        sku_d = f"REG-CD-{int(time.time()*1000)+1}"
+        _create_fresh_product(admin_headers, f"REG-CD-{int(time.time()*1000)+1}", sku_d, "DONNA",
+                              {"loc-donna-1": 2, "loc-donna-2": 1})
+        vu = _get_variant(sku_u, admin_headers)
         before_u = vu["stock_by_location"].get("loc-uomo", 0)
-        assert before_u >= 1
-        # snapshot a donna variant
-        vd = _get_variant("IMP001-NERO-S", admin_headers)
+        vd = _get_variant(sku_d, admin_headers)
         d1_before = vd["stock_by_location"].get("loc-donna-1", 0)
         d2_before = vd["stock_by_location"].get("loc-donna-2", 0)
 
@@ -164,15 +192,18 @@ class TestPOSAndStock:
         r = requests.post(f"{API}/pos/sales", json=payload, headers=admin_headers)
         assert r.status_code == 200
 
-        vu2 = _get_variant("DSL901-BLU-30", admin_headers)
+        vu2 = _get_variant(sku_u, admin_headers)
         assert vu2["stock_by_location"].get("loc-uomo", 0) == before_u - 1
 
-        vd2 = _get_variant("IMP001-NERO-S", admin_headers)
+        vd2 = _get_variant(sku_d, admin_headers)
         assert vd2["stock_by_location"].get("loc-donna-1", 0) == d1_before
         assert vd2["stock_by_location"].get("loc-donna-2", 0) == d2_before
 
     def test_sale_insufficient_stock_400(self, admin_headers):
-        v = _get_variant("DSL901-BLU-34", admin_headers)
+        sku = f"REG-IS-{int(time.time()*1000)}"
+        _create_fresh_product(admin_headers, f"REG-IS-{int(time.time()*1000)}", sku, "UOMO",
+                              {"loc-uomo": 1})
+        v = _get_variant(sku, admin_headers)
         payload = {"location_id": "loc-uomo", "items": [{"variant_id": v["id"], "quantity": 9999, "unit_price": v["price"]}], "payment_method": "CARTA"}
         r = requests.post(f"{API}/pos/sales", json=payload, headers=admin_headers)
         assert r.status_code == 400
@@ -181,22 +212,27 @@ class TestPOSAndStock:
 # ---------- TRANSFERS (TEST D) ----------
 class TestTransfers:
     def test_D_transfer_donna1_to_donna2(self, admin_headers):
-        v = _get_variant("IMP088-BIA-S", admin_headers)
+        sku = f"REG-D-{int(time.time()*1000)}"
+        _create_fresh_product(admin_headers, f"REG-D-{int(time.time()*1000)}", sku, "DONNA",
+                              {"loc-donna-1": 3, "loc-donna-2": 2})
+        v = _get_variant(sku, admin_headers)
         d1 = v["stock_by_location"].get("loc-donna-1", 0)
         d2 = v["stock_by_location"].get("loc-donna-2", 0)
-        assert d1 >= 1
         payload = {"from_location_id": "loc-donna-1", "to_location_id": "loc-donna-2",
                    "items": [{"variant_id": v["id"], "quantity": 1}]}
         r = requests.post(f"{API}/transfers", json=payload, headers=admin_headers)
         assert r.status_code == 200, r.text
-        v2 = _get_variant("IMP088-BIA-S", admin_headers)
+        v2 = _get_variant(sku, admin_headers)
         assert v2["stock_by_location"].get("loc-donna-1", 0) == d1 - 1
         assert v2["stock_by_location"].get("loc-donna-2", 0) == d2 + 1
         # Pool total invariant
         assert (v2["stock_by_location"].get("loc-donna-1", 0) + v2["stock_by_location"].get("loc-donna-2", 0)) == d1 + d2
 
     def test_transfer_cross_pool_rejected(self, admin_headers):
-        v = _get_variant("IMP001-NERO-S", admin_headers)
+        sku = f"REG-XP-{int(time.time()*1000)}"
+        _create_fresh_product(admin_headers, f"REG-XP-{int(time.time()*1000)}", sku, "DONNA",
+                              {"loc-donna-1": 2})
+        v = _get_variant(sku, admin_headers)
         payload = {"from_location_id": "loc-donna-1", "to_location_id": "loc-uomo",
                    "items": [{"variant_id": v["id"], "quantity": 1}]}
         r = requests.post(f"{API}/transfers", json=payload, headers=admin_headers)
@@ -206,11 +242,17 @@ class TestTransfers:
 # ---------- SHOPIFY WEBHOOK IDEMPOTENCY (TEST E) ----------
 class TestShopifyWebhook:
     def test_E_webhook_idempotent(self, admin_headers):
-        v = _get_variant("LJ050-DEN-28", admin_headers)
+        # Provision a fresh product with known stock in Donna pool
+        sku = f"REG-E-{int(time.time()*1000)}"
+        _create_fresh_product(admin_headers, f"REG-E-{int(time.time()*1000)}", sku, "DONNA",
+                              {"loc-donna-1": 3, "loc-donna-2": 2})
+        v = _get_variant(sku, admin_headers)
         before_total = sum(v["stock_by_location"].values())
-        ext = f"TEST-ORDER-{int(time.time())}"
+        assert before_total == 5
+
+        ext = f"TEST-ORDER-{int(time.time()*1000)}"
         payload = {"channel": "SHOPIFY_DONNA", "external_id": ext,
-                   "items": [{"sku": "LJ050-DEN-28", "quantity": 1, "unit_price": v["price"]}]}
+                   "items": [{"sku": sku, "quantity": 1, "unit_price": v["price"]}]}
         r1 = requests.post(f"{API}/shopify/webhook/order", json=payload, headers=admin_headers)
         assert r1.status_code == 200, r1.text
         # Second call - idempotent
@@ -218,7 +260,7 @@ class TestShopifyWebhook:
         assert r2.status_code == 200
         assert r2.json().get("idempotent") is True
 
-        v2 = _get_variant("LJ050-DEN-28", admin_headers)
+        v2 = _get_variant(sku, admin_headers)
         after_total = sum(v2["stock_by_location"].values())
         assert after_total == before_total - 1  # decremented once only
 

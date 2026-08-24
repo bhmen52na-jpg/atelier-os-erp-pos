@@ -9,30 +9,31 @@ const NAV = [
     { section: "Vendite" },
     { to: "/pos", label: "Cassa (POS)", icon: ShoppingCart, testid: "nav-pos" },
     { to: "/vendite/storico", label: "Storico vendite", icon: History, testid: "nav-sales-history" },
-    { section: "Catalogo" },
-    { to: "/prodotti", label: "Prodotti", icon: Package, testid: "nav-products" },
+    { section: "Catalogo", roles: ["ADMIN", "MANAGER"] },
+    { to: "/prodotti", label: "Prodotti", icon: Package, testid: "nav-products", roles: ["ADMIN", "MANAGER"] },
     { section: "Magazzino" },
     { to: "/magazzino", label: "Disponibilità", icon: Warehouse, testid: "nav-inventory" },
     { to: "/magazzino/movimenti", label: "Movimenti", icon: Activity, testid: "nav-movements" },
     { to: "/magazzino/trasferimenti", label: "Trasferimenti", icon: ArrowLeftRight, testid: "nav-transfers" },
-    { section: "Vendita online" },
-    { to: "/ordini", label: "Ordini Shopify", icon: Store, testid: "nav-orders" },
+    { section: "Vendita online", roles: ["ADMIN", "MANAGER"] },
+    { to: "/ordini", label: "Ordini Shopify", icon: Store, testid: "nav-orders", roles: ["ADMIN", "MANAGER"] },
     { section: "Clienti & Prezzi" },
     { to: "/clienti", label: "Clienti", icon: Users, testid: "nav-customers" },
-    { to: "/promozioni", label: "Promozioni & Saldi", icon: Tag, testid: "nav-promotions" },
-    { section: "Dati" },
-    { to: "/importa", label: "Importa da CSV", icon: Upload, testid: "nav-import" },
-    { section: "Integrazioni" },
-    { to: "/integrazioni/shopify", label: "Shopify Donna & Uomo", icon: Cable, testid: "nav-shopify" },
-    { section: "Sistema" },
-    { to: "/sistema/utenti", label: "Utenti & Ruoli", icon: Users, testid: "nav-users" },
-    { to: "/sistema/sincronizzazioni", label: "Log sincronizzazioni", icon: ScrollText, testid: "nav-sync-log" },
-    { to: "/sistema/audit", label: "Registro attività", icon: ScrollText, testid: "nav-audit" },
+    { to: "/promozioni", label: "Promozioni & Saldi", icon: Tag, testid: "nav-promotions", roles: ["ADMIN", "MANAGER"] },
+    { section: "Dati", roles: ["ADMIN", "MANAGER"] },
+    { to: "/importa", label: "Importa da CSV", icon: Upload, testid: "nav-import", roles: ["ADMIN", "MANAGER"] },
+    { section: "Integrazioni", roles: ["ADMIN", "MANAGER"] },
+    { to: "/integrazioni/shopify", label: "Shopify Donna & Uomo", icon: Cable, testid: "nav-shopify", roles: ["ADMIN", "MANAGER"] },
+    { section: "Sistema", roles: ["ADMIN", "MANAGER"] },
+    { to: "/sistema/utenti", label: "Utenti & Ruoli", icon: Users, testid: "nav-users", roles: ["ADMIN"] },
+    { to: "/sistema/sincronizzazioni", label: "Log sincronizzazioni", icon: ScrollText, testid: "nav-sync-log", roles: ["ADMIN", "MANAGER"] },
+    { to: "/sistema/audit", label: "Registro attività", icon: ScrollText, testid: "nav-audit", roles: ["ADMIN", "MANAGER"] },
 ];
 
 export default function Layout({ children }) {
     const { user, logout } = useAuth();
     const nav = useNavigate();
+    const visibleNav = NAV.filter((item) => !item.roles || item.roles.includes(user?.role));
     return (
         <div className="min-h-screen flex bg-neutral-50">
             <aside className="w-72 shrink-0 bg-white border-r border-neutral-200 flex flex-col" data-testid="sidebar">
@@ -41,7 +42,7 @@ export default function Layout({ children }) {
                     <div className="text-xl font-light tracking-tight text-neutral-900 mt-1">Atelier<span className="font-semibold">·</span>OS</div>
                 </div>
                 <nav className="flex-1 overflow-y-auto py-2 px-3">
-                    {NAV.map((item, idx) =>
+                    {visibleNav.map((item, idx) =>
                         item.section ? (
                             <div key={idx} className="sidebar-section">{item.section}</div>
                         ) : (

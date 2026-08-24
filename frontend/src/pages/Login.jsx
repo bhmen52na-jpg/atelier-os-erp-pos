@@ -11,6 +11,7 @@ export default function Login() {
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [demoUsers, setDemoUsers] = useState([]);
+    const [errMsg, setErrMsg] = useState("");
 
     useEffect(() => {
         if (user) nav("/dashboard");
@@ -20,12 +21,15 @@ export default function Login() {
     const submit = async (e) => {
         e.preventDefault();
         setLoading(true);
+        setErrMsg("");
         try {
             await login(email, password);
             toast.success("Accesso effettuato");
             nav("/dashboard");
         } catch (err) {
-            toast.error(apiError(err, "Impossibile accedere. Verifica email e password."));
+            const msg = apiError(err, "Impossibile accedere. Verifica email e password.");
+            setErrMsg(msg);
+            toast.error(msg);
         } finally { setLoading(false); }
     };
 
@@ -64,6 +68,7 @@ export default function Login() {
                             className="w-full py-3 bg-black text-white rounded-md font-medium disabled:opacity-50" style={{ transition: "background-color 0.15s ease" }}>
                             {loading ? "Accesso…" : "Entra"}
                         </button>
+                        {errMsg && <div data-testid="login-error" className="mt-2 px-3 py-2 rounded-md bg-red-50 border border-red-200 text-sm text-red-700">{errMsg}</div>}
                     </form>
                     {demoUsers.length > 0 && (
                         <div className="mt-8 border border-dashed border-neutral-300 rounded-md p-4 bg-white">
