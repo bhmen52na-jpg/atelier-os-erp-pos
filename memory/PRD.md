@@ -60,3 +60,10 @@ Sidebar filtrata per ruolo (i cassieri non vedono link admin).
 - Reso guidato con ricerca vendita originale
 - Report PDF scontrino, email cliente (Resend)
 - Grafici dashboard (Recharts già installato)
+
+## Iter 5 · Performance fix (Feb 2026)
+- Eliminato N+1 in `enrich_product`/`list_products`: ora batch-load con `$in` (una query per variants + una per inventory sull'intera lista)
+- Aggiunte projection su `list_movements` (variants: id/sku/product_id, products: id/name)
+- Aggiunte projection su `dashboard_summary` (inventory: variant_id/on_hand/location_id, variants: id/cost/product_id/sku, products: id/name)
+- `deployment_agent`: **status pass** — nessun blocker, nessun WARN residuo
+- pytest: 33/33 verdi (nessuna regressione)

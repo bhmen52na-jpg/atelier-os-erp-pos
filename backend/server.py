@@ -161,11 +161,17 @@ async def create_season(payload: dict, user=Depends(get_current_user_dep)):
     return clean(doc)
 
 
-async def enrich_product(prod: dict) -> dict:
+async def enrich_product(prod: dict, inventory_by_variant: Optional[dict] = None) -> dict:
     variants = clean_list(await db.variants.find({"product_id": prod["id"]}).to_list(500))
+    if inventory_by_variant is None:
+        # Batch-load inventory for all variants of this product in ONE query (avoids N+1)
+        var_ids = [v["id"] for v in variants]
+        rows = await db.inventory.find({"variant_id": {"$in": var_ids}}).to_list(len(var_ids) * 5 + 10)
+        inventory_by_variant = {}
+        for r in rows:
+            inventory_by_variant.setdefault(r["variant_id"], []).append(r)
     for v in variants:
-        rows = await db.inventory.find({"variant_id": v["id"]}).to_list(20)
-        stock_by_loc = {r["location_id"]: r.get("on_hand", 0) for r in rows}
+        stock_by_loc = {r["location_id"]: r.get("on_hand", 0) for r in inventory_by_variant.get(v["id"], [])}
         v["stock_by_location"] = stock_by_loc
         v["total_stock"] = sum(stock_by_loc.values())
     prod["variants"] = variants
@@ -176,7 +182,18 @@ async def enrich_product(prod: dict) -> dict:
 @api.get("/products")
 async def list_products(user=Depends(get_current_user_dep)):
     prods = clean_list(await db.products.find({}).sort("created_at", -1).to_list(1000))
-    return [await enrich_product(p) for p in prods]
+    # Single batch query: all variants for these products
+    prod_ids = [p["id"] for p in prods]
+    all_variants = await db.variants.find({"product_id": {"$in": prod_ids}}).to_list(5000)
+    var_ids = [v["id"] for v in all_variants]
+    # Single batch query: all inventory for those variants
+    all_inventory = await db.inventory.find(
+        {"variant_id": {"$in": var_ids}}, {"variant_id": 1, "location_id": 1, "on_hand": 1, "_id": 0}
+    ).to_list(len(var_ids) * 5 + 10)
+    inventory_by_variant: dict = {}
+    for r in all_inventory:
+        inventory_by_variant.setdefault(r["variant_id"], []).append(r)
+    return [await enrich_product(p, inventory_by_variant) for p in prods]
 
 
 @api.get("/products/{product_id}")
@@ -306,8 +323,8 @@ async def pool_availability(user=Depends(get_current_user_dep)):
 @api.get("/inventory/movements")
 async def list_movements(limit: int = 200, user=Depends(get_current_user_dep)):
     mvs = await db.inventory_movements.find({}).sort("created_at", -1).to_list(limit)
-    variants = {v["id"]: clean(v) for v in await db.variants.find({}).to_list(5000)}
-    products = {p["id"]: clean(p) for p in await db.products.find({}).to_list(5000)}
+    variants = {v["id"]: v for v in await db.variants.find({}, {"id": 1, "sku": 1, "product_id": 1, "_id": 0}).to_list(5000)}
+    products = {p["id"]: p for p in await db.products.find({}, {"id": 1, "name": 1, "_id": 0}).to_list(5000)}
     out = []
     for m in mvs:
         m = clean(m)
@@ -484,9 +501,9 @@ async def dashboard_summary(user=Depends(get_current_user_dep)):
     start_day = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
     sales_today = await db.sales.find({"created_at": {"$gte": start_day}, "is_return": False}).to_list(2000)
     all_sales = await db.sales.find({"is_return": False}).to_list(5000)
-    inventory = await db.inventory.find({}).to_list(5000)
-    variants = {v["id"]: clean(v) for v in await db.variants.find({}).to_list(5000)}
-    products = {p["id"]: clean(p) for p in await db.products.find({}).to_list(5000)}
+    inventory = await db.inventory.find({}, {"variant_id": 1, "on_hand": 1, "location_id": 1, "_id": 0}).to_list(5000)
+    variants = {v["id"]: v for v in await db.variants.find({}, {"id": 1, "cost": 1, "product_id": 1, "sku": 1, "_id": 0}).to_list(5000)}
+    products = {p["id"]: p for p in await db.products.find({}, {"id": 1, "name": 1, "_id": 0}).to_list(5000)}
     total_stock_value = 0.0
     stock_by_variant = {}
     for r in inventory:

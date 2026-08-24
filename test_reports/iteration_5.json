@@ -1,0 +1,32 @@
+{
+  "summary": "Iterazione 5 — Verifica regressioni post-fix performance (batch load $in su varianti/inventario, projection su list_movements e dashboard_summary). RISULTATO: NESSUNA REGRESSIONE. pytest 40 passed / 1 skipped (test_mongo_indexes_present, skip ambientale come iter 3/4). Backend endpoint verificati via curl: GET /api/products ritorna 90 prodotti con variants[].stock_by_location popolato (87 con stock>0, total_stock=277); GET /api/products/{id} restituisce stesso stock_by_location del listing (consistenza batch vs single OK); GET /api/inventory/movements?limit=100 ritorna 100 righe, 0 mancanti sku, 0 mancanti product_name (projection non ha rotto la lookup); GET /api/dashboard/summary ritorna stock_value=3896.0 (calcolato con v.cost * on_hand) e last_movements[10] tutti con sku+product_name popolati. Frontend E2E: login admin OK; /prodotti mostra 90 prodotti con stock totale visibile (8, 3, 4, 5, ...); /magazzino/movimenti mostra 200 righe con nome prodotto + SKU (es. 'pool test · POOL-1787612445888'); /dashboard KPI 'Valore magazzino' = 3896,00 € e 'Ultimi movimenti' mostra nome prodotto e SKU su tutte le 10 righe.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "backend/tests/test_supplementary.py::test_mongo_indexes_present", "issue": "Skippato (variabile MONGO_URL non risolta dentro pytest quando importa direttamente il client). Non impatta funzionalità — indici verificati in iter 3."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_supplementary.py",
+    "/app/test_reports/pytest/iter5.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Fix performance (enrich_product/list_products batch $in, projection su list_movements e dashboard_summary) applicati correttamente: consistenza dati preservata tra batch e single-fetch, nessun campo obbligatorio perso nelle projection.",
+    "Restano OPEN non bloccanti (già documentati iter 3/4): server.py monolitico >850 righe; CORS '*' + credentials; POS.jsx <span> in <option> (React hydration warning LOW); Shopify sync worker background assente (MVP); webhook Shopify JWT invece di HMAC (MVP); fiscalizzazione RT assente (MVP)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (40/40, 1 skip ambientale)", "frontend": "100% (3/3 flussi regressione verificati)"},
+  "test_credentials": "Verificate OK — Admin bhmen52na@gmail.com / Admin123!",
+  "seed_data_creation": "Nessuna aggiuntiva",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "MVP pronto per deploy. Fix performance verificati senza regressioni. Se serve nuova iter, focus sui 4 punti PRODUZIONE (HMAC webhook, CORS explicit, Shopify sync worker background, fiscalizzazione RT) o modularizzazione server.py.",
+  "rca of the issue": "N/A — nessun bug trovato in questa iterazione. I fix di performance del deployment_agent (batch $in e projection) sono corretti e non hanno introdotto regressioni funzionali."
+}
