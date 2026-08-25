@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: atelier-os-api-bhmen52
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    autoDeploy: false
+    envVars:
+      - key: MONGO_URL
+        sync: false
+      - key: DB_NAME
+        value: atelier_os
+      - key: JWT_SECRET
+        generateValue: true
+
+  - type: web
+    name: atelier-os-gestionale-bhmen52
+    runtime: static
+    plan: free
+    rootDir: frontend
+    buildCommand: yarn install --frozen-lockfile && yarn build
+    staticPublishPath: build
+    autoDeploy: false
+    envVars:
+      - key: REACT_APP_BACKEND_URL
+        value: https://atelier-os-api-bhmen52.onrender.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
