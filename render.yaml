@@ -18,7 +18,6 @@ services:
   - type: web
     name: atelier-os-gestionale-bhmen52
     runtime: static
-    plan: free
     rootDir: frontend
     buildCommand: yarn install --frozen-lockfile && yarn build
     staticPublishPath: build
